@@ -3,6 +3,9 @@
 # email:1084848158@qq.com
 '''
     回归类结果分析与保存
+    选股择时能力：TM,HM ,CL
+    行业回归
+    风格回归
 '''
 import numpy as np
 import pandas as pd
