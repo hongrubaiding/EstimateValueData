@@ -10,9 +10,11 @@ from GetDataFromWindAndMySql import GetDataFromWindAndMySql
 from CalcRiskReturn import CalcRiskReturn
 import os
 from datetime import datetime, timedelta
-
 from CalcRegression import CalcRegression
+from FamaFrenchRegression import FamaFrenchRegression
 from JudgeText import JudgeText
+import warnings
+warnings.filterwarnings('ignore')
 
 
 class EstimateValue:
@@ -39,7 +41,7 @@ class EstimateValue:
         if netValuedf.empty:
             netValuedf = self.GetDataFromWindAndMySqlDemo.getHQData(tempCode=self.fundCode, startDate=self.startDate,
                                                                  endDate=self.endDate,tableFlag='fund',nameList=['fund_name','acc_net_value'])
-
+        self.PrintInfoDemo.PrintLog("基金净值数据获取成功！")
         self.fundName = netValuedf['fund_name'].unique()[0]
         dicResult['fundName'] = self.fundName
         netValuedf.drop(labels='fund_name', inplace=True, axis=1)
@@ -56,6 +58,7 @@ class EstimateValue:
             indexDf.rename(columns={'close_price': indexCode}, inplace=True)
             dfIndexList.append(indexDf)
 
+        self.PrintInfoDemo.PrintLog("获取大盘指数数据成功！")
         totalIndexDf = pd.concat(dfIndexList, axis=1)
         dicResult['indexDf'] = totalIndexDf
 
@@ -70,6 +73,7 @@ class EstimateValue:
                          '银行', '机械设备', '电子', '传媒', '非银金融', '建筑材料', '国防军工', '建筑装饰', '计算机', '家用电器', '钢铁', '食品饮料']
         industryDic = {industryCode: industryName for industryCode, industryName in zip(industryList, industryLabel)}
         dfIndestryList = []
+        self.PrintInfoDemo.PrintLog("获取申万一级行业指数数据...")
         for indexCode in industryList:
             industryDf = self.GetDataFromWindAndMySqlDemo.getHQData(tempCode=indexCode, startDate=startDate,
                                                                     endDate=endDate)
@@ -79,6 +83,7 @@ class EstimateValue:
         totalIndustryDf = pd.concat(dfIndestryList, axis=1)
         dicResult['totalIndustryDf'] = totalIndustryDf
         dicResult['industryDic'] = industryDic
+        self.PrintInfoDemo.PrintLog("获取申万一级行业指数数据成功！")
 
         # 风格指数
         styleList = ['801863.SI', '801822.SI', '801813.SI', '801831.SI', '801812.SI', '801821.SI', '801852.SI',
@@ -88,6 +93,7 @@ class EstimateValue:
                        '亏损股指数', '绩优股指数', '高价股指数', '低市净率指数', '低市盈率指数', '大盘指数']
         styleDic = {sylteCode: styleName for sylteCode, styleName in zip(styleList, styleLabel)}
         dfStyleList = []
+        self.PrintInfoDemo.PrintLog("获取风格指数数据...")
         for indexCode in styleList:
             styleDf = self.GetDataFromWindAndMySqlDemo.getHQData(tempCode=indexCode, startDate=startDate,
                                                                     endDate=endDate)
@@ -96,6 +102,7 @@ class EstimateValue:
         totalStyleDf = pd.concat(dfStyleList, axis=1)
         dicResult['totalStyleDf'] = totalStyleDf
         dicResult['styleDic'] = styleDic
+        self.PrintInfoDemo.PrintLog("获取风格指数数据成功")
         return dicResult
 
     def getRiskFree(self):
@@ -112,12 +119,14 @@ class EstimateValue:
         :param dicNetValueResult:
         :return:
         '''
+
         fundIndexDf = pd.concat([dicNetValueResult['netValuedf']['acc_net_value'], dicNetValueResult['indexDf']],
                                 axis=1, join='inner')
         fundIndexDf.rename(columns={'acc_net_value': dicNetValueResult['fundName']}, inplace=True)
         fundPlotDf = fundIndexDf.rename(columns=self.indexNameDic)
 
         CalcRiskReturnDemo = CalcRiskReturn()
+        self.PrintInfoDemo.PrintLog("计算日频数据相关结论...")
         CalcRiskReturnDemo.calcRiskReturn(fundPlotDf, resultPath)
         CalcRiskReturnDemo.plotDayNetValueFigure(fundPlotDf, resultPath, fundName=self.fundName,
                                                  netPeriod=self.netValuePeriod)
@@ -129,12 +138,14 @@ class EstimateValue:
                                                                     Period=self.netValuePeriod)
         CalcRiskReturnDemo.getMentoCaloForecast(fundPlotDf, resultPath, tradeDayList, fundName=self.fundName)
 
+        self.PrintInfoDemo.PrintLog("计算周频数据相关结论...")
         tradeWeekList = self.GetDataFromWindAndMySqlDemo.getTradeDay(startdate=fundPlotDf.index.tolist()[0],
                                                                      endDate=fundPlotDf.index.tolist()[-1], Period='W')
         weekFundPlotDf = fundPlotDf.loc[tradeWeekList].dropna(axis=0)
         CalcRiskReturnDemo.plotWeekNetValueFigure(weekFundPlotDf, resultPath, fundName=self.fundName)
         CalcRiskReturnDemo.calcWeekNetValueResult(weekFundPlotDf, resultPath, fundName=self.fundName)
 
+        self.PrintInfoDemo.PrintLog("计算月频数据相关结论...")
         tradeMonthList = self.GetDataFromWindAndMySqlDemo.getTradeDay(startdate=fundPlotDf.index.tolist()[0],
                                                                       endDate=fundPlotDf.index.tolist()[-1], Period='M')
         monthFundPlotDf = fundPlotDf.loc[tradeMonthList].dropna(axis=0)
@@ -143,9 +154,11 @@ class EstimateValue:
         targetDf = fundPlotDf.copy()
         targetDf['无风险利率'] = self.getRiskFree()
         CalcRegressionDemo = CalcRegression()
+        self.PrintInfoDemo.PrintLog("计算选股，择时能力相关结论...")
         CalcRegressionDemo.getSelectStockAndTime(targetDf, resultPath, fundName=self.fundName,
                                                  netPeriod=self.netValuePeriod, benchMark='沪深300')
 
+        self.PrintInfoDemo.PrintLog("计算行业，风格回归相关结论...")
         fundIndustryDf = pd.concat(
             [dicNetValueResult['netValuedf']['acc_net_value'], dicNetValueResult['totalIndustryDf']],
             axis=1, join='inner')
@@ -176,6 +189,10 @@ class EstimateValue:
     def getMain(self):
         dicNetValueResult = self.getNetValueDataDic()  # 获取产品净值数据和指数数据
         resultPath = self.getSavePath()
+        #
+        # FamaFrenchRegressionDemo = FamaFrenchRegression()
+        # FamaFrenchRegressionDemo.calcMain(closePriceSe=dicNetValueResult['netValuedf']['acc_net_value'],resultPath=resultPath)
+
         self.calcAndPlotSaveRiskReturn(dicNetValueResult, resultPath)  # 净值类统计结果，按统计周期分析与保存
         JudgeTextDemo = JudgeText()
         JudgeTextDemo.getNetJudgeText(fundCode=self.fundCode,fundName=self.fundName,totalIndexName=self.totalIndexName)
@@ -188,11 +205,11 @@ if __name__ == '__main__':
     chenYuProduct['金牛3号'] = 'SW5068'
     chenYuProduct['金牛5号'] = 'SY7337'
     dicParam = {}
-    dicParam['fundCode'] = 'SW5068'  # 基金代码
+    dicParam['fundCode'] = 'SCZ679'  # 基金代码
     dicParam['netValuePeriod'] = ''  # 净值披露频率
     dicParam['isPosition'] = False
     dicParam['startDate'] = '2015-01-01'
-    dicParam['endDate'] = '2019-06-05'
+    dicParam['endDate'] = '2016-01-01'
 
     EstimateValueDemo = EstimateValue(dicParam=dicParam)
     EstimateValueDemo.getMain()
