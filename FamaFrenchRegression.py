@@ -88,13 +88,14 @@ class FamaFrenchRegression:
         self.PrintInfoDemo.PrintLog("产品起止日期内的SMB,HML收益率计算完成，存入本地！")
         return resultDf
 
-
     def calcMain(self, closePriceSe, resultPath,indexCode='000016.SH',):
         self.PrintInfoDemo.PrintLog("开始计算fama-french三因子模型,采用的宽基指数为%s"%indexCode)
         tempReturn = (closePriceSe - closePriceSe.shift(1)) / closePriceSe.shift(1)
+        tempReturn.name = closePriceSe.name
         dateList = tempReturn.index.tolist()
         factorReturnDf = self.getFacrotReturn(resultPath,dateList=dateList, indexCode=indexCode)
-        a=0
+        calcRusultDf = pd.concat([factorReturnDf,tempReturn],axis=1,join='inner')
+        calcRusultDf.to_excel(resultPath+'三因子样本数据.xlsx')
 
 
 if __name__ == '__main__':
