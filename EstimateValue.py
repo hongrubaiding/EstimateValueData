@@ -5,7 +5,7 @@
 import pandas as pd
 import numpy as np
 from PrintInfo import PrintInfo
-from MysqlCon import MysqlCon
+from DataToMySql.MysqlCon import MysqlCon
 from GetDataFromWindAndMySql import GetDataFromWindAndMySql
 from CalcRiskReturn import CalcRiskReturn
 import os
@@ -188,14 +188,14 @@ class EstimateValue:
 
     def getMain(self):
         dicNetValueResult = self.getNetValueDataDic()  # 获取产品净值数据和指数数据
-        resultPath = self.getSavePath()
+        resultPath = self.getSavePath()                 #创建分析结果保存文件路径
         #
-        # FamaFrenchRegressionDemo = FamaFrenchRegression()
-        # FamaFrenchRegressionDemo.calcMain(closePriceSe=dicNetValueResult['netValuedf']['acc_net_value'],resultPath=resultPath)
+        FamaFrenchRegressionDemo = FamaFrenchRegression()
+        FamaFrenchRegressionDemo.calcMain(closePriceSe=dicNetValueResult['netValuedf']['acc_net_value'],resultPath=resultPath)
 
-        self.calcAndPlotSaveRiskReturn(dicNetValueResult, resultPath)  # 净值类统计结果，按统计周期分析与保存
-        JudgeTextDemo = JudgeText()
-        JudgeTextDemo.getNetJudgeText(fundCode=self.fundCode,fundName=self.fundName,totalIndexName=self.totalIndexName)
+        # self.calcAndPlotSaveRiskReturn(dicNetValueResult, resultPath)  # 净值类统计结果，按统计周期分析与保存
+        # JudgeTextDemo = JudgeText()
+        # JudgeTextDemo.getNetJudgeText(fundCode=self.fundCode,fundName=self.fundName,totalIndexName=self.totalIndexName)
 
 
 if __name__ == '__main__':
@@ -204,8 +204,9 @@ if __name__ == '__main__':
     chenYuProduct['锐阳6号'] = 'SCZ679'
     chenYuProduct['金牛3号'] = 'SW5068'
     chenYuProduct['金牛5号'] = 'SY7337'
+
     dicParam = {}
-    dicParam['fundCode'] = 'SCZ679'  # 基金代码
+    dicParam['fundCode'] = '160630.OF'  # 基金代码
     dicParam['netValuePeriod'] = ''  # 净值披露频率
     dicParam['isPosition'] = False
     dicParam['startDate'] = '2015-01-01'
