@@ -6,9 +6,9 @@
 
 from WindPy import w
 import pandas as pd
-from MysqlCon import MysqlCon
+from DataToMySql.MysqlCon import MysqlCon
+from DataToMySql.GetDataToMysql import GetDataToMysql
 from PrintInfo import PrintInfo
-from datetime import datetime
 w.start()
 
 
@@ -21,6 +21,7 @@ class GetDataFromWindAndMySql:
         self.engine = MysqlCon().getMysqlCon(flag='engine')
         self.conn = MysqlCon().getMysqlCon(flag='connect')
         self.PrintInfoDemo = PrintInfo()
+        self.GetDataToMysqlDemo = GetDataToMysql()
 
     def getIndexConstituent(self,indexCode='000300.SH',getDate='2019-06-06'):
         '''
@@ -45,19 +46,8 @@ class GetDataFromWindAndMySql:
             resultDf['update_time'] = getDate
             resultDf['index_code'] = indexCode
 
-            # 插入数据语句
-            tableList = ['update_time','index_code','stock_code','stock_name','stock_weight','adjust_time']
-            sqlStr = "replace into index_constituent(update_time,index_code,stock_code,stock_name,stock_weight,adjust_time) " \
-                     "VALUES(%s,%s,%s,%s,%s,%s)"
-            cursor = self.conn.cursor()
-            for r in range(0, len(resultDf)):
-                values = tuple(resultDf.ix[r,tableList].tolist())
-                cursor.execute(sqlStr, values)
-            cursor.close()
-            self.conn.commit()
+            self.GetDataToMysqlDemo.GetMain(resultDf,'index_constituent')
         return resultDf
-
-
 
     def getLackDataToMySql(self, tempCode, startDate, endDate, tableFlag='index'):
         if tableFlag == 'index':
@@ -84,11 +74,13 @@ class GetDataFromWindAndMySql:
             self.getDataFromWind(tempCode, startDate=startDate, endDate=endDate, tableFlag=tableFlag)
         elif startDate <= minDate:
             if minDate <= endDate < maxDate:
-                self.getDataFromWind(tempCode, startDate=startDate, endDate=minDate, tableFlag=tableFlag)
+                if startDate!=minDate:
+                    self.getDataFromWind(tempCode, startDate=startDate, endDate=minDate, tableFlag=tableFlag)
             elif endDate >= maxDate:
                 self.getDataFromWind(tempCode, startDate=startDate, endDate=minDate, tableFlag=tableFlag)
-                self.getDataFromWind(tempCode, startDate=maxDate, endDate=endDate, tableFlag=tableFlag)
-        elif endDate >= maxDate:
+                if endDate!=maxDate:
+                    self.getDataFromWind(tempCode, startDate=maxDate, endDate=endDate, tableFlag=tableFlag)
+        elif endDate > maxDate:
             self.getDataFromWind(tempCode, startDate=maxDate, endDate=endDate, tableFlag=tableFlag)
 
     def getDataFromWind(self, tempCode, startDate='2019-04-01', endDate='2019-04-30', tableFlag='index'):
@@ -119,25 +111,9 @@ class GetDataFromWindAndMySql:
         tempDf[codeName] = tempCode
         tempDf['update_time'] = wsetdata.Times
         tempDf.rename(columns=nameDic, inplace=True)
-
-        # 插入数据语句
-        if tableFlag!='stock':
-            tempDf.to_sql(tableStr, con=self.engine, index=False, if_exists='append')
-        else:
-            dateList = [dateStr.strftime("%Y-%m-%d") for dateStr in tempDf['update_time'].tolist()]
-            tempDf['update_time'] = dateList
-            tableList = ['open_price','high_price','low_price','close_price',
-                         'volume','amt','turn','market_value','pe_ttm','ps_ttm','pb_lf','stock_code','update_time']
-            sqlStr = "replace into stock_hq_value(open_price,high_price,low_price,close_price,volume,amt,turn," \
-                     "market_value,pe_ttm,ps_ttm,pb_lf,stock_code,update_time) " \
-                     "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
-            cursor = self.conn.cursor()
-            for r in range(0, len(tempDf)):
-                values = tuple(tempDf.ix[r, tableList].tolist())
-                cursor.execute(sqlStr, values)
-            cursor.close()
-            self.conn.commit()
-        # w.close()
+        dateList = [dateStr.strftime("%Y-%m-%d") for dateStr in tempDf['update_time'].tolist()]
+        tempDf['update_time'] = dateList
+        self.GetDataToMysqlDemo.GetMain(tempDf, tableStr)
         return tempDf
 
     def getDataFromMySql(self, tempCode, startDate, endDate, tableFlag='index', nameList=['close_price']):
@@ -239,18 +215,7 @@ class GetDataFromWindAndMySql:
                 tempDf.rename(columns=nameDic,inplace=True)
 
                 tempDf['stock_code'] = tempDf.index.tolist()
-                tableList = ['open_price', 'high_price', 'low_price', 'close_price',
-                             'volume', 'amt', 'turn', 'market_value', 'pe_ttm', 'ps_ttm', 'pb_lf', 'stock_code',
-                             'update_time']
-                sqlStr = "replace into stock_hq_value(open_price,high_price,low_price,close_price,volume,amt,turn," \
-                         "market_value,pe_ttm,ps_ttm,pb_lf,stock_code,update_time) " \
-                         "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
-                cursor = self.conn.cursor()
-                for r in range(0, len(tempDf)):
-                    values = tuple(tempDf.ix[r, tableList].tolist())
-                    cursor.execute(sqlStr, values)
-                cursor.close()
-                self.conn.commit()
+                self.GetDataToMysqlDemo.GetMain(tempDf, 'stock_hq_value')
                 returnDf = tempDf[nameList]
                 return returnDf
             else:
@@ -286,10 +251,10 @@ class GetDataFromWindAndMySql:
 
 if __name__ == '__main__':
     GetDataFromWindAndMySqlDemo = GetDataFromWindAndMySql()
-    # GetDataFromWindAndMySqlDemo.getHQData(indexCode='000300.SH', startDate='2019-02-01', endDate='2019-05-01')
-    # aa = GetDataFromWindAndMySqlDemo.getIndexConstituent(indexCode='000905.SH')
+    aa = GetDataFromWindAndMySqlDemo.getHQData(tempCode='000300.SH', startDate='2019-02-01', endDate='2019-05-01')
+    # aa = GetDataFromWindAndMySqlDemo.getIndexConstituent(indexCode='000905.SH',getDate='2010-02-03')
     # getHQData(self, tempCode, startDate='2019-04-01', endDate='2019-04-30', tableFlag='index',
     #           nameList=['close_price']):
-    # aa = GetDataFromWindAndMySqlDemo.getHQData(tempCode='300033.SZ',tableFlag='stock')
-    aa = GetDataFromWindAndMySqlDemo.getCurrentDateData(tempCodeList=['300033.SZ','600000.SH'],getDate='2018-03-08')
+    # aa = GetDataFromWindAndMySqlDemo.getHQData(tempCode='300033.SZ',tableFlag='stock',startDate='2010-01-01',endDate='2010-02-01')
+    # aa = GetDataFromWindAndMySqlDemo.getCurrentDateData(tempCodeList=['300033.SZ','600000.SH'],getDate='2012-03-08')
     print(aa)
