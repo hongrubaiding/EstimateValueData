@@ -52,15 +52,23 @@ class EstimateValue:
         endDate = netValuedf.index.tolist()[-1]
 
         dfIndexList = []
+        dfVolumeList = []
         for indexCode in indexCodeList:
             indexDf = self.GetDataFromWindAndMySqlDemo.getHQData(tempCode=indexCode, startDate=startDate,
                                                                  endDate=endDate)
             indexDf.rename(columns={'close_price': indexCode}, inplace=True)
             dfIndexList.append(indexDf)
 
+            indexDf = self.GetDataFromWindAndMySqlDemo.getHQData(tempCode=indexCode, startDate=startDate,
+                                                                 endDate=endDate,nameList=['volume'])
+            indexDf.rename(columns={'volume': indexCode}, inplace=True)
+            dfVolumeList.append(indexDf)
+
         self.PrintInfoDemo.PrintLog("获取大盘指数数据成功！")
         totalIndexDf = pd.concat(dfIndexList, axis=1)
+        totalVolumeDf = pd.concat(dfVolumeList, axis=1)
         dicResult['indexDf'] = totalIndexDf
+        dicResult['totalVolumeDf'] = totalVolumeDf
 
         # 行业指数
         industryList = ['801210.SI', '801050.SI', '801140.SI', '801020.SI', '801170.SI', '801030.SI', '801150.SI',
@@ -112,6 +120,8 @@ class EstimateValue:
             riskFree = 0.02 / 250
         return riskFree
 
+
+
     def calcAndPlotSaveRiskReturn(self, dicNetValueResult, resultPath):
         '''
             计算并保存指定周期的风险收益指标
@@ -119,7 +129,6 @@ class EstimateValue:
         :param dicNetValueResult:
         :return:
         '''
-
         fundIndexDf = pd.concat([dicNetValueResult['netValuedf']['acc_net_value'], dicNetValueResult['indexDf']],
                                 axis=1, join='inner')
         fundIndexDf.rename(columns={'acc_net_value': dicNetValueResult['fundName']}, inplace=True)
@@ -128,8 +137,10 @@ class EstimateValue:
         CalcRiskReturnDemo = CalcRiskReturn()
         self.PrintInfoDemo.PrintLog("计算日频数据相关结论...")
         CalcRiskReturnDemo.calcRiskReturn(fundPlotDf, resultPath)
+        marketVolume = dicNetValueResult['totalVolumeDf']
         CalcRiskReturnDemo.plotDayNetValueFigure(fundPlotDf, resultPath, fundName=self.fundName,
-                                                 netPeriod=self.netValuePeriod)
+                                                 netPeriod=self.netValuePeriod,marketVolume=marketVolume)
+
 
         startDate = fundPlotDf.index.tolist()[-1]
         startDate = datetime.strptime(startDate, "%Y-%m-%d")
@@ -190,27 +201,29 @@ class EstimateValue:
         dicNetValueResult = self.getNetValueDataDic()  # 获取产品净值数据和指数数据
         resultPath = self.getSavePath()                 #创建分析结果保存文件路径
         #
-        FamaFrenchRegressionDemo = FamaFrenchRegression()
-        FamaFrenchRegressionDemo.calcMain(closePriceSe=dicNetValueResult['netValuedf']['acc_net_value'],resultPath=resultPath)
+        # FamaFrenchRegressionDemo = FamaFrenchRegression()
+        # FamaFrenchRegressionDemo.calcResult(resultPath,dicNetValueResult['totalIndustryDf'],dicNetValueResult['industryDic'])
+        # FamaFrenchRegressionDemo.calcMain(closePriceSe=dicNetValueResult['netValuedf']['acc_net_value'],resultPath=resultPath)
 
-        # self.calcAndPlotSaveRiskReturn(dicNetValueResult, resultPath)  # 净值类统计结果，按统计周期分析与保存
-        # JudgeTextDemo = JudgeText()
-        # JudgeTextDemo.getNetJudgeText(fundCode=self.fundCode,fundName=self.fundName,totalIndexName=self.totalIndexName)
+        self.calcAndPlotSaveRiskReturn(dicNetValueResult, resultPath)  # 净值类统计结果，按统计周期分析与保存
+        JudgeTextDemo = JudgeText()
+        JudgeTextDemo.getNetJudgeText(fundCode=self.fundCode,fundName=self.fundName,totalIndexName=self.totalIndexName)
+        self.PrintInfoDemo.PrintLog("计算完成！")
 
 
 if __name__ == '__main__':
     # 乐道S60034  宽远S35529,000409.OF
-    chenYuProduct = {}
-    chenYuProduct['锐阳6号'] = 'SCZ679'
-    chenYuProduct['金牛3号'] = 'SW5068'
-    chenYuProduct['金牛5号'] = 'SY7337'
 
-    dicParam = {}
-    dicParam['fundCode'] = '160630.OF'  # 基金代码
-    dicParam['netValuePeriod'] = ''  # 净值披露频率
-    dicParam['isPosition'] = False
-    dicParam['startDate'] = '2015-01-01'
-    dicParam['endDate'] = '2016-01-01'
+    nameDic = {'费曼一号（增强IE500）': 'SEP131', '华量锐天1号（T0对冲IE500）': 'SW7742', '阿尔法对冲': 'SK7720'}
+    codeList = ['SS2221','SY3702']
+    for fundcode in codeList:
+        print(fundcode)
+        dicParam = {}
+        dicParam['fundCode'] = fundcode  # 基金代码
+        dicParam['netValuePeriod'] = 'W'  # 净值披露频率
+        dicParam['isPosition'] = False
+        dicParam['startDate'] = '2015-01-01'
+        dicParam['endDate'] = '2016-01-01'
 
-    EstimateValueDemo = EstimateValue(dicParam=dicParam)
-    EstimateValueDemo.getMain()
+        EstimateValueDemo = EstimateValue(dicParam=dicParam)
+        EstimateValueDemo.getMain()
