@@ -86,8 +86,10 @@ class CalcRiskReturn:
                 tempValueDf = fundIndexDf[-timeNum:]
             else:
                 tempValueDf = fundIndexDf
-
-            tempResult,tempRightResult = self.calcDetail(tempValueDf)
+            try:
+                tempResult,tempRightResult = self.calcDetail(tempValueDf)
+            except:
+                a=0
             tempDf = pd.DataFrame(tempResult).T
             tempDf['统计周期'] = timeWindow
             tempDf['数据截止日期'] = tempValueDf.index.tolist()[-1]
@@ -109,7 +111,7 @@ class CalcRiskReturn:
         tempToExcelDf.to_excel(resultPath + '风险收益统计指标.xlsx')
         tempRightToExcelDf.to_excel(resultPath + '风险收益统计指标原始数据.xlsx')
 
-    def plotDayNetValueFigure(self, fundPlotDf, resultPath, fundName,netPeriod=''):
+    def plotDayNetValueFigure(self, fundPlotDf, resultPath, fundName,netPeriod='',marketVolume=pd.DataFrame()):
         '''
         累计收益走势，连续回撤率走势，滚动年化波动走势
         :param fundPlotDf:
@@ -121,14 +123,34 @@ class CalcRiskReturn:
         tempReturn.fillna(0, inplace=True)
         accReturn = (1 + tempReturn).cumprod() - 1
 
-        plt.style.use('ggplot')
-        fig = plt.figure(figsize=(16, 9))
-        ax = fig.add_subplot(111)
-        accReturn.plot(ax=ax)
-        ax.grid()
-        ax.set_xlabel('时间')
-        ax.set_ylabel('收益率')
-        ax.set_title('累计收益走势图')
+        if not marketVolume.empty:
+            marketVolume = self.DateFormatDfDemo.getStrToDate(marketVolume)
+            marketVolume.rename(columns={'000300.SH':'沪深300成交量'},inplace=True)
+            plt.style.use('ggplot')
+            fig = plt.figure(figsize=(16, 9))
+            ax = fig.add_subplot(211)
+            accReturn.plot(ax=ax)
+            ax.grid()
+            ax.set_xlabel('时间')
+            ax.set_ylabel('收益率')
+            ax.set_title('累计收益走势图')
+
+            ax2 = fig.add_subplot(212)
+            marketVolume['沪深300成交量'].plot(ax=ax2)
+            ax2.grid()
+            ax2.set_xlabel('时间')
+            ax2.set_ylabel('成交量')
+            ax2.set_title('沪深300成交量')
+
+        else:
+            plt.style.use('ggplot')
+            fig = plt.figure(figsize=(16, 9))
+            ax = fig.add_subplot(111)
+            accReturn.plot(ax=ax)
+            ax.grid()
+            ax.set_xlabel('时间')
+            ax.set_ylabel('收益率')
+            ax.set_title('累计收益走势图')
         plt.savefig(resultPath + '累计收益走势图.png')
 
         def historydownrate(tempdata):
