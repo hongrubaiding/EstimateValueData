@@ -37,7 +37,7 @@ class CalcRegression:
         res = (sm.OLS(y, X)).fit()
         return res
 
-    def getStyleRegression(self,fundIndustryDf, resultPath,fundName,industryDic):
+    def getStyleRegression(self,fundIndustryDf, resultPath,fundName,industryDic,DCIndexDf=pd.DataFrame()):
         '''
         风格归因
         :param fundIndustryDf:
@@ -50,6 +50,9 @@ class CalcRegression:
         targetLabel = industryCodeList + [fundName]
         targetDf = fundIndustryDf[targetLabel]
         tempReturn = (targetDf - targetDf.shift(1)) / targetDf.shift(1)
+        if not DCIndexDf.empty:          #量化类产品
+            bench_return_df = DCIndexDf/DCIndexDf.shift(1)-1
+            tempReturn[fundName] = pd.concat([bench_return_df,tempReturn[fundName]],axis=1,sort=True).sum(axis=1)
 
         def reduceRf(tempSe):
             resultSe = tempSe - fundIndustryDf['无风险利率']
@@ -115,7 +118,7 @@ class CalcRegression:
         plt.savefig(resultPath + '拟合风格指数累计走势对比图.png')
         plt.show()
 
-    def getIndustryRegression(self,fundIndustryDf, resultPath,fundName,industryDic):
+    def getIndustryRegression(self,fundIndustryDf, resultPath,fundName,industryDic,bench_return=pd.DataFrame()):
         '''
         行业归因
         :param fundIndustryDf:
@@ -127,8 +130,11 @@ class CalcRegression:
         industryCodeList = list(industryDic.keys())
         targetLabel = industryCodeList+[fundName]
         targetDf = fundIndustryDf[targetLabel]
-        tempReturn = (targetDf-targetDf.shift(1))/targetDf.shift(1)
 
+        tempReturn = (targetDf-targetDf.shift(1))/targetDf.shift(1)
+        if not bench_return.empty:          #量化类产品
+            bench_return_df = bench_return/bench_return.shift(1)-1
+            tempReturn[fundName] = pd.concat([bench_return_df,tempReturn[fundName]],axis=1,sort=True).sum(axis=1)
         def reduceRf(tempSe):
             resultSe = tempSe - fundIndustryDf['无风险利率']
             return resultSe
@@ -191,7 +197,7 @@ class CalcRegression:
         ax.legend(loc='down right')  # 添加图例
         plt.savefig(resultPath + '拟合行业指数累计走势对比图.png')
 
-    def getSelectStockAndTime(self, fundPlotDf, resultPath, fundName, netPeriod, benchMark):
+    def getSelectStockAndTime(self, fundPlotDf, resultPath, fundName, netPeriod, benchMark,DCIndexDf=pd.DataFrame()):
         '''
         计算选股择时能力
         :param ReturnData:
@@ -203,9 +209,16 @@ class CalcRegression:
         else:
             calcPeriod = 250
 
-        targetDf = fundPlotDf[[fundName, benchMark]]
-        tempReturn = (targetDf - targetDf.shift(1)) / targetDf.shift(1)
-        tempReturn.fillna(0, inplace=True)
+        if not DCIndexDf.empty:
+            target_df = pd.concat([fundPlotDf[[fundName,benchMark]],DCIndexDf],axis=1,sort=True)
+            tempReturn = (target_df - target_df.shift(1)) / target_df.shift(1)
+            tempReturn.fillna(0, inplace=True)
+            tempReturn[fundName] = tempReturn[[tempReturn.columns[0],tempReturn.columns[-1]]].sum(axis=1)       #量化对冲产品
+        else:
+            targetDf = fundPlotDf[[fundName, benchMark]]
+            tempReturn = (targetDf - targetDf.shift(1)) / targetDf.shift(1)
+            tempReturn.fillna(0, inplace=True)
+
         fundReduceRf = tempReturn[fundName] - fundPlotDf['无风险利率']
         bencReduceRf = tempReturn[benchMark] - fundPlotDf['无风险利率']
 
